@@ -1,0 +1,85 @@
+# install these Four packages.
+library(tseries)
+library(forecast)
+library(fGarch)
+library(aTSA)
+library(portes)
+# Copy the data in the Excel File
+# To import the data
+data<-read.table(file = "clipboard", sep = "\t", header = TRUE)
+datats<- ts(data)
+# Converting data set into time series
+datats<-ts(data,frequency=12,start=c(2005,4))
+ggseasonplot(datats, year.labels=TRUE, year.labels.left=TRUE) +
+  ylab("Price (Rs/Qtl)") +
+  ggtitle("Seasonal plot: Potato Price of Azadpur market")
+# Plot time series data 
+plot.ts(datats) 
+
+# For Portmonteau test install package "Portes"
+BoxPierce(datats,lags = 24)
+# ADF Test for stationarity
+adf.test(diffdatats)
+
+# PP test for Stationarity
+pp.test(diffdatats)
+
+# Differencing the series
+diffdatats<-diff(datats,differences=1) 
+
+# Obtaining the ACF plot of original data
+datatsacf<-acf(datats,lag.max=100) 
+
+# Obtaining the PACF plot of original data
+datapacf<-pacf(datats,lag.max=12)
+
+# Obtaining the ACF plot of differenced data
+datatsacf<-acf(diffdatats,lag.max=12) 
+
+# Obtaining the PACF plotof differenced data
+datapacf<-pacf(diffdatats,lag.max=12)
+
+# Finding the order of ARIMA model
+fit<- auto.arima(datats) 
+accuracy(fit)
+
+# Fitting of ARIMA model
+fit_arima<-arima(datats,order=c(1,1,1), seasonal = list(order=c(0,0,0),period=NA),include.mean=TRUE) 
+fit_arima
+# Forecasting using ARIMA model
+fcast_arima<-forecast::forecast(fit_arima,h=8)
+fcast_arima<-predict(fit_arima,8)
+
+# Plot of the ARIMA forecast
+plot(fcast_arima)  
+
+write.csv(fcast_arima,"arima_forecast.csv")
+
+# To obtained residuals from ARIMA Model
+residuals<-fit_arima$residuals
+resid_sqr<- (residuals)^2
+plot(resid_sqr)
+# Obtaining the ACF plot of original data
+residacf<-acf(resid_sqr,lag.max=12) 
+
+# Obtaining the PACF plot of original data
+residpacf<-pacf(resid_sqr,lag.max=12)
+
+# Plot of residuals
+plot(residuals)
+
+# ARCH LM Test
+arch.test(fit_arima)
+
+# Fitting of GARCH Model 
+garchdatats<-garchFit(formula = ~ arma(1,1)+garch(1,1), data = datats, cond.dist = c("norm"), include.mean = TRUE, include.delta = NULL, include.skew = NULL, include.shape = NULL, leverage = NULL, trace = TRUE,algorithm = c("nlminb+nm"),hessian = c("ropt"))
+fited<- garchdatats@fitted
+condi_var<- garchdatats@h.t
+# Forecasting using AR-GARCH model
+forecastgarch<-predict(garchdatats, n.ahead = 8, trace = FALSE, mse = c("uncond"), plot=FALSE, nx=NULL, crit_val=NULL, conf=NULL)
+write.csv(forecastgarch, file=("garch.csv"))
+# Plot of the forecast
+plot.ts(forecastgarch) 
+summary(garchdatats)
+res<-residuals(garchdatats)
+BoxPierce(res,lags = 18)
